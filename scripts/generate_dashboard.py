@@ -7,42 +7,43 @@ HEADERS = {"Authorization": f"token {TOKEN}"}
 
 
 def get_repos():
-    """Alle Repos der Org abrufen, außer .github"""
-    url = f"https://api.github.com/orgs/{ORG}/repos?per_page=100"
+    query = """
+    query($org: String!, $cursor: String) {
+      organization(login: $org) {
+        repositories(first: 100, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            name
+            url
+          }
+        }
+      }
+    }
+    """
+
     repos = []
-    while url:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        resp_json = response.json()
-        for repo in resp_json:
-            if repo['name'] != ".github":  # Ignorieren
-                repos.append(repo)
-        url = response.links.get('next', {}).get('url')
+    cursor = None
+
+    while True:
+        r = requests.post(
+            "https://api.github.com/graphql",
+            headers=HEADERS,
+            json={"query": query, "variables": {"org": ORG, "cursor": cursor}},
+        )
+        r.raise_for_status()
+        data = r.json()["data"]["organization"]["repositories"]
+
+        repos.extend(data["nodes"])
+
+        if not data["pageInfo"]["hasNextPage"]:
+            break
+
+        cursor = data["pageInfo"]["endCursor"]
+
     return repos
-
-
-def get_last_workflows(repo_name):
-    """Letzten Ruff- und Lint-Workflow abrufen"""
-    url = f"https://api.github.com/repos/{ORG}/{repo_name}/actions/runs?per_page=50"
-    response = requests.get(url, headers=HEADERS)
-    response.raise_for_status()
-    workflows = response.json().get("workflow_runs", [])
-
-    ruff_status = "-"
-    lint_status = "-"
-    last_update = "-"
-
-    for run in workflows:
-        name = run['name'].lower()
-        if "ruff" in name:
-            ruff_status = "✅" if run['conclusion'] == "success" else "❌"
-        if "pylint" in name:
-            lint_status = "✅" if run['conclusion'] == "success" else "❌"
-
-    if workflows:
-        last_update = workflows[0]['updated_at']
-
-    return ruff_status, lint_status, last_update
 
 
 def sort_repos_by_status(repo_list):
@@ -61,20 +62,51 @@ def sort_repos_by_status(repo_list):
     return sorted(repo_list, key=sort_key)
 
 
+def get_latest_run(repo, workflow_file):
+    url = f"https://api.github.com/repos/{ORG}/{repo}/actions/workflows/{workflow_file}/runs?per_page=1"
+    r = requests.get(url, headers=HEADERS)
+
+    if r.status_code != 200:
+        return "-", "", "-"
+
+    runs = r.json().get("workflow_runs", [])
+    if not runs:
+        return "-", "", "-"
+
+    run = runs[0]
+    status = "✅" if run["conclusion"] == "success" else "❌"
+
+    return status, run["html_url"], run["updated_at"]
+
+
+def get_last_workflows(repo_name):
+    ruff, ruff_url, ruff_time = get_latest_run(repo_name, "ruff.yml")
+    lint, lint_url, lint_time = get_latest_run(repo_name, "pylint.yml")
+
+    last_update = max(ruff_time, lint_time)
+
+    return ruff, lint, ruff_url, lint_url, last_update
+
+
 def generate_markdown(repos):
-    """Markdown-Tabelle erstellen"""
     repo_data = []
+
     for repo in repos:
-        name = repo['name']
-        ruff, lint, updated = get_last_workflows(name)
+        name = repo["name"]
+        repo_url = repo["url"]
+
+        ruff, lint, ruff_url, lint_url, updated = get_last_workflows(name)
+
         repo_data.append({
             "name": name,
+            "url": repo_url,
             "ruff": ruff,
             "lint": lint,
+            "ruff_url": ruff_url,
+            "lint_url": lint_url,
             "updated": updated
         })
 
-    # Sortieren
     sorted_repos = sort_repos_by_status(repo_data)
 
     lines = [
@@ -82,14 +114,29 @@ def generate_markdown(repos):
         "| Repo | Ruff | Lint | Last Update |",
         "| --- | --- | --- | --- |"
     ]
+
     for repo in sorted_repos:
-        lines.append(f"| {repo['name']} | {repo['ruff']} | {repo['lint']} | {repo['updated']} |")
+        repo_link = f"[{repo['name']}]({repo['url']})"
+
+        ruff_link = repo["ruff"]
+        if repo["ruff_url"]:
+            ruff_link = f"[{repo['ruff']}]({repo['ruff_url']})"
+
+        lint_link = repo["lint"]
+        if repo["lint_url"]:
+            lint_link = f"[{repo['lint']}]({repo['lint_url']})"
+
+        lines.append(
+            f"| {repo_link} | {ruff_link} | {lint_link} | {repo['updated']} |"
+        )
+
     return "\n".join(lines)
 
 
 def main():
     print("Fetching repos...")
     repos = get_repos()
+    repos = [r for r in repos if r["name"] != ".github"]
     print(f"Found {len(repos)} repos. Generating dashboard...")
     md = generate_markdown(repos)
     with open("profile/README.md", "w", encoding="utf-8") as f:
