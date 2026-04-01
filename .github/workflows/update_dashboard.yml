@@ -20,6 +20,8 @@ jobs:
         run: pip install requests
 
       - name: Generate Dashboard
+        env:
+          ORG_PAT: ${{ secrets.ORG_PAT }}
         run: python scripts/generate_dashboard.py
 
       - name: Commit & Push changes
