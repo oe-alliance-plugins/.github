@@ -26,11 +26,10 @@ jobs:
 
       - name: Commit & Push changes
         run: |
-          cat README.md
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          git add README.md
-          git status
-          git diff --quiet || git commit -m "Update Org Dashboard"
+          git add -u
+          git add *
+          git commit -m "Update Org Dashboard"
           git push
