@@ -2,7 +2,7 @@ import requests
 import os
 
 ORG = "oe-alliance-plugins"
-TOKEN = os.environ.get("GITHUB_TOKEN")
+TOKEN = os.environ.get("ORG_PAT")
 HEADERS = {"Authorization": f"token {TOKEN}"}
 
 
