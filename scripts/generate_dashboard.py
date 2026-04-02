@@ -46,48 +46,6 @@ def get_repos():
     return repos
 
 
-def sort_repos_by_status(repo_list):
-    """Sortiert: zuerst Repos mit Fehlern, dann ✅"""
-    def sort_key(item):
-        # ❌ → 0, ✅ → 1, '-' → 2
-        def val(status):
-            if status == "❌":
-                return 0
-            if status == "✅":
-                return 1
-            return 2
-        ruff, lint = item['ruff'], item['lint']
-        return (min(val(ruff), val(lint)), item['name'].lower())
-
-    return sorted(repo_list, key=sort_key)
-
-
-def get_latest_run(repo, workflow_file):
-    url = f"https://api.github.com/repos/{ORG}/{repo}/actions/workflows/{workflow_file}/runs?per_page=1"
-    r = requests.get(url, headers=HEADERS)
-
-    if r.status_code != 200:
-        return "-", "", "-"
-
-    runs = r.json().get("workflow_runs", [])
-    if not runs:
-        return "-", "", "-"
-
-    run = runs[0]
-    status = "✅" if run["conclusion"] == "success" else "❌"
-
-    return status, run["html_url"], run["updated_at"]
-
-
-def get_last_workflows(repo_name):
-    ruff, ruff_url, ruff_time = get_latest_run(repo_name, "ruff.yml")
-    lint, lint_url, lint_time = get_latest_run(repo_name, "pylint.yml")
-
-    last_update = max(ruff_time, lint_time)
-
-    return ruff, lint, ruff_url, lint_url, last_update
-
-
 def generate_markdown(repos):
     repo_data = []
 
@@ -95,39 +53,34 @@ def generate_markdown(repos):
         name = repo["name"]
         repo_url = repo["url"]
 
-        ruff, lint, ruff_url, lint_url, updated = get_last_workflows(name)
-
         repo_data.append({
             "name": name,
-            "url": repo_url,
-            "ruff": ruff,
-            "lint": lint,
-            "ruff_url": ruff_url,
-            "lint_url": lint_url,
-            "updated": updated
+            "url": repo_url
         })
 
-    sorted_repos = sort_repos_by_status(repo_data)
+    sorted_repos = sorted(repo_data, key=lambda x: x['name'].lower())
 
     lines = [
         "# Org Dashboard\n",
-        "| Repo | Ruff | Lint | Last Update |",
+        "| Repo | Ruff | Lint | Sonar |",
         "| --- | --- | --- | --- |"
     ]
 
     for repo in sorted_repos:
         repo_link = f"[{repo['name']}]({repo['url']})"
 
-        ruff_link = repo["ruff"]
-        if repo["ruff_url"]:
-            ruff_link = f"[{repo['ruff']}]({repo['ruff_url']})"
+        # Ruff Badge
+        ruff_badge = f"[![Ruff Status](https://github.com/{ORG}/{repo['name']}/actions/workflows/ruff.yml/badge.svg)](https://github.com/{ORG}/{repo['name']}/actions/workflows/ruff.yml)"
 
-        lint_link = repo["lint"]
-        if repo["lint_url"]:
-            lint_link = f"[{repo['lint']}]({repo['lint_url']})"
+        # Lint Badge
+        lint_badge = f"[![Lint Status](https://github.com/{ORG}/{repo['name']}/actions/workflows/pylint.yml/badge.svg)](https://github.com/{ORG}/{repo['name']}/actions/workflows/pylint.yml)"
+
+        # Sonar Badge (falls vorhanden)
+        sonar_project = f"oe-alliance-plugins_{repo['name']}"
+        sonar_badge = f"[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=alert_status)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
 
         lines.append(
-            f"| {repo_link} | {ruff_link} | {lint_link} | {repo['updated']} |"
+            f"| {repo_link} | {ruff_badge} | {lint_badge} | {sonar_badge} |"
         )
 
     return "\n".join(lines)
