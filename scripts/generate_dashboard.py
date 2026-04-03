@@ -76,7 +76,7 @@ def generate_markdown(repos):
         lint_badge = f"[![Lint Status](https://github.com/{ORG}/{repo['name']}/actions/workflows/pylint.yml/badge.svg)](https://github.com/{ORG}/{repo['name']}/actions/workflows/pylint.yml)"
 
         # Sonar Badge (falls vorhanden)
-        sonar_project = f"oe-alliance-plugins_{repo['name']}"
+        sonar_project = f"oe-alliance-plugins_{repo['name'].lower()}"
         sonar_badge = f"[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=alert_status)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
 
         lines.append(
