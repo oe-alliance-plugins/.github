@@ -18,6 +18,11 @@ def get_repos():
           nodes {
             name
             url
+            refs(first: 1, refPrefix: "refs/tags/", orderBy: {direction: DESC, field: TAG_COMMIT_DATE}) {
+              nodes {
+                name
+              }
+            }
           }
         }
       }
@@ -53,17 +58,23 @@ def generate_markdown(repos):
         name = repo["name"]
         repo_url = repo["url"]
 
+        # Neuesten Tag extrahieren
+        latest_tag = "-"
+        if repo.get("refs") and repo["refs"].get("nodes"):
+            latest_tag = repo["refs"]["nodes"][0]["name"]
+
         repo_data.append({
             "name": name,
-            "url": repo_url
+            "url": repo_url,
+            "tag": latest_tag
         })
 
     sorted_repos = sorted(repo_data, key=lambda x: x['name'].lower())
 
     lines = [
         "# Org Dashboard\n",
-        "| Repo | Ruff | Lint | Sonar |",
-        "| --- | --- | --- | --- |"
+        "| Repo | Ruff | Lint | Sonar | Tag |",
+        "| --- | --- | --- | --- | --- |"
     ]
 
     for repo in sorted_repos:
@@ -80,7 +91,7 @@ def generate_markdown(repos):
         sonar_badge = f"[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=alert_status)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
 
         lines.append(
-            f"| {repo_link} | {ruff_badge} | {lint_badge} | {sonar_badge} |"
+            f"| {repo_link} | {ruff_badge} | {lint_badge} | {sonar_badge} | {repo['tag']} |"
         )
 
     return "\n".join(lines)
