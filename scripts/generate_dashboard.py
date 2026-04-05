@@ -72,7 +72,6 @@ def generate_markdown(repos):
     sorted_repos = sorted(repo_data, key=lambda x: x['name'].lower())
 
     lines = [
-        "# Org Dashboard\n",
         "| Repo | Ruff | Lint | Sonar | Tag |",
         "| --- | --- | --- | --- | --- |"
     ]
@@ -86,12 +85,16 @@ def generate_markdown(repos):
         # Lint Badge
         lint_badge = f"[![Lint Status](https://github.com/{ORG}/{repo['name']}/actions/workflows/pylint.yml/badge.svg)](https://github.com/{ORG}/{repo['name']}/actions/workflows/pylint.yml)"
 
-        # Sonar Badge (falls vorhanden)
+        # Sonar Badges
         sonar_project = f"oe-alliance-plugins_{repo['name']}"
-        sonar_badge = f"[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=alert_status)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
+        quality_gate_badge = f"[![QG Status](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=alert_status)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
+        bugs_badge = f"[![Bugs](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=bugs)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
+        security_badge = f"[![Security](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=security_rating)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
+        vulnerabilities_badge = f"[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project={sonar_project}&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id={sonar_project})"
+        sonar_badges = f"{quality_gate_badge}<br>{bugs_badge}<br>{security_badge}<br>{vulnerabilities_badge}"
 
         lines.append(
-            f"| {repo_link} | {ruff_badge} | {lint_badge} | {sonar_badge} | {repo['tag']} |"
+            f"| {repo_link} | {ruff_badge} | {lint_badge} | {sonar_badges} | {repo['tag']} |"
         )
 
     return "\n".join(lines)
