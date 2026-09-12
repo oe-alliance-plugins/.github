@@ -103,7 +103,7 @@ def generate_markdown(repos):
 def main():
     print("Fetching repos...")
     repos = get_repos()
-    repos = [r for r in repos if r["name"] != ".github"]
+    repos = [r for r in repos if r["name"] not in (".github", "_TemplatePlugin_")]
     print(f"Found {len(repos)} repos. Generating dashboard...")
     md = generate_markdown(repos)
     with open("profile/README.md", "w", encoding="utf-8") as f:
